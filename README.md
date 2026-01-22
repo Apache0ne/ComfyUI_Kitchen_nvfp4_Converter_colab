@@ -3,7 +3,7 @@
 # Mise à jours:
 Ajout du support pour Flux.1 (Philippe Joye)
 ---
-Un nœud simple et ultra-rapide pour convertir Z-image-turbo au format **NVFP4** directement depuis l'interface ComfyUI.
+Un nœud ComfyUI haute performance pour convertir vos modèles en NVFP4. Basculez entre les architectures Z-Image et Flux.1 en un clic et profitez de la puissance des Tensor Cores.
 
 Ce format permet de diviser la taille des modèles par 3.5 tout en conservant une qualité quasi identique au BF16, tout en profitant des **Tensor Cores** des cartes NVIDIA récentes.
 <img width="1692" height="830" alt="Capture d&#39;écran 2026-01-22 182126" src="https://github.com/user-attachments/assets/edfdc342-5c9a-4787-9f50-66ac02b39ed4" />
