@@ -18,7 +18,7 @@ class ConvertToNVFP4:
             "required": {
                 "model_name": (folder_paths.get_filename_list("diffusion_models"),),
                 "output_filename": ("STRING", {"default": "model-nvfp4"}),
-                "model_type": (["Z-Image", "Flux.1", "Flux.1 Fill", "Qwen Image Edit"], {"default": "Z-Image"}),
+                "model_type": (["Z-Image", "Flux.1", "Flux.1 Fill", "Flux.2", "Qwen Image Edit", "Qwen-Image-2512"], {"default": "Z-Image"}),
                 "device": (["cuda", "cpu"], {"default": "cuda"}),
             }
         }
@@ -27,18 +27,24 @@ class ConvertToNVFP4:
     RETURN_NAMES = ("status",)
     FUNCTION = "convert"
     CATEGORY = "Kitchen"
+    
     OUTPUT_NODE = True
 
     def convert(self, model_name, output_filename, model_type, device):
         input_path = folder_paths.get_full_path("diffusion_models", model_name)
         output_path = os.path.join(os.path.dirname(input_path), f"{output_filename}.safetensors")
         
-        if model_type in ["Flux.1", "Flux.1 Fill"]:
-            BLACKLIST = ["img_in", "txt_in", "time_in", "vector_in", "guidance_in", "final_layer", "class_embedding"]
-        elif model_type == "Qwen Image Edit":
-            # Ta version validée et approuvée
+        # --- CONFIGURATION DES PROFILS ---
+        if model_type in ["Flux.1", "Flux.1 Fill", "Flux.2"]:
+            # Profil Flux unifié (incluant Flux.2)
+            BLACKLIST = [
+                "img_in", "txt_in", "time_in", "vector_in", "guidance_in", "final_layer", "class_embedding",
+                "single_stream_modulation", "double_stream_modulation_img", "double_stream_modulation_txt"
+            ]
+        elif model_type in ["Qwen Image Edit", "Qwen-Image-2512"]:
             BLACKLIST = ["img_in", "txt_in", "time_text_embed", "norm_out", "proj_out"]
         else:
+            # Profil Z-Image
             BLACKLIST = ["cap_embedder", "x_embedder", "noise_refiner", "context_refiner", "t_embedder", "final_layer"]
 
         print(f"🚀 Mode {model_type} activé")
@@ -50,7 +56,7 @@ class ConvertToNVFP4:
         total_steps = len(sd)
         pbar = comfy.utils.ProgressBar(total_steps)
 
-        print(f"⚙️ Conversion NVFP4 ({model_type}) sur : {device}")
+        print(f"⚙️ Conversion NVFP4 ({model_type}) lancée sur : {device}")
         
         for i, (k, v) in enumerate(sd.items()):
             pbar.update_absolute(i + 1)
@@ -85,6 +91,7 @@ class ConvertToNVFP4:
                 new_sd[k] = v.to(dtype=torch.bfloat16)
 
         metadata = {"_quantization_metadata": json.dumps(quant_map)}
+        
         print(f"💾 Écriture du fichier final : {output_path}")
         safetensors.torch.save_file(new_sd, output_path, metadata=metadata)
         
@@ -92,7 +99,7 @@ class ConvertToNVFP4:
             torch.cuda.empty_cache()
             
         print(f"✅ Terminé.")
-        return (f"Modèle {model_type} NVFP4 créé avec succès.",)
+        return (f"Succès ({model_type}) : {output_filename}.safetensors",)
 
 NODE_CLASS_MAPPINGS = {"ConvertToNVFP4": ConvertToNVFP4}
 NODE_DISPLAY_NAME_MAPPINGS = {"ConvertToNVFP4": "🍳 Kitchen NVFP4 Converter"}
