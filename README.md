@@ -8,7 +8,7 @@
 - Ajout du support pour Qwen-image 2512
 - Ajout du support pour Flux.2-dev
 ---
-Un nœud ComfyUI haute performance pour convertir vos modèles en NVFP4. Basculez entre les architectures Z-Image, Flux.1, Flux.1-Fill, Qwen-image-edit 2511 en un clic et profitez de la puissance des Tensor Cores.
+Un nœud ComfyUI haute performance pour convertir vos modèles en NVFP4. Basculez entre les architectures Z-Image, Flux.1, Flux.1-Fill, Qwen-image-edit 2511, Qwen-image 2512 et flux.2-dev en un clic et profitez de la puissance des Tensor Cores.
 
 Ce format permet de diviser la taille des modèles par 3.5 tout en conservant une qualité quasi identique au BF16, tout en profitant des **Tensor Cores** des cartes NVIDIA récentes.
 
