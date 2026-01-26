@@ -9,7 +9,7 @@ try:
     import comfy_kitchen as ck
     from comfy_kitchen.tensor import TensorCoreNVFP4Layout
 except ImportError:
-    print("⚠️ [Convert-to-NVFP4] comfy-kitchen introuvable. Installation requise : pip install comfy-kitchen")
+    print("⚠️ [Convert-to-NVFP4] comfy-kitchen introuvable.")
 
 class ConvertToNVFP4:
     @classmethod
@@ -18,7 +18,7 @@ class ConvertToNVFP4:
             "required": {
                 "model_name": (folder_paths.get_filename_list("diffusion_models"),),
                 "output_filename": ("STRING", {"default": "model-nvfp4"}),
-                "model_type": (["Z-Image", "Flux.1", "Flux.1 Fill", "Flux.2", "Qwen Image Edit", "Qwen-Image-2512"], {"default": "Z-Image"}),
+                "model_type": (["Z-Image", "Flux.1", "Flux.1 Fill", "Flux.2", "Qwen-Image-Edit-2511", "Qwen-Image-2512"], {"default": "Z-Image"}),
                 "device": (["cuda", "cpu"], {"default": "cuda"}),
             }
         }
@@ -27,7 +27,6 @@ class ConvertToNVFP4:
     RETURN_NAMES = ("status",)
     FUNCTION = "convert"
     CATEGORY = "Kitchen"
-    
     OUTPUT_NODE = True
 
     def convert(self, model_name, output_filename, model_type, device):
@@ -35,32 +34,27 @@ class ConvertToNVFP4:
         output_path = os.path.join(os.path.dirname(input_path), f"{output_filename}.safetensors")
         
         # --- CONFIGURATION DES PROFILS ---
-        if model_type in ["Flux.1", "Flux.1 Fill", "Flux.2"]:
-            # Profil Flux unifié (incluant Flux.2)
-            BLACKLIST = [
-                "img_in", "txt_in", "time_in", "vector_in", "guidance_in", "final_layer", "class_embedding",
-                "single_stream_modulation", "double_stream_modulation_img", "double_stream_modulation_txt"
-            ]
-        elif model_type in ["Qwen Image Edit", "Qwen-Image-2512"]:
-            BLACKLIST = ["img_in", "txt_in", "time_text_embed", "norm_out", 
-                         "proj_out", "txt_mlp", "txt_mod", "img_mod.1", "txt_mlp.net.0.proj", 
-                         "txt_mlp.net.2", "txt_mod.1"
-                         ]
+        if model_type == "Qwen Image Edit 2511":
+            BLACKLIST = ["img_in", "txt_in", "time_text_embed", "norm_out", "proj_out"]
+            FP8_LAYERS = []
+        elif model_type == "Qwen-Image-2512":
+            BLACKLIST = ["img_in", "txt_in", "time_text_embed", "norm_out", "proj_out", "img_mod.1"]
+            FP8_LAYERS = ["txt_mlp", "txt_mod"]
+        elif model_type in ["Flux.1", "Flux.1 Fill", "Flux.2"]:
+            BLACKLIST = ["img_in", "txt_in", "time_in", "vector_in", "guidance_in", "final_layer", "class_embedding", "single_stream_modulation", "double_stream_modulation_img", "double_stream_modulation_txt"]
+            FP8_LAYERS = []
         else:
-            # Profil Z-Image
             BLACKLIST = ["cap_embedder", "x_embedder", "noise_refiner", "context_refiner", "t_embedder", "final_layer"]
+            FP8_LAYERS = []
 
         print(f"🚀 Mode {model_type} activé")
         sd = safetensors.torch.load_file(input_path)
-        
         quant_map = {"format_version": "1.0", "layers": {}}
         new_sd = {}
         
-        total_steps = len(sd)
-        pbar = comfy.utils.ProgressBar(total_steps)
+        pbar = comfy.utils.ProgressBar(len(sd))
+        print(f"⚙️ Conversion lancée sur : {device}")
 
-        print(f"⚙️ Conversion NVFP4 ({model_type}) lancée sur : {device}")
-        
         for i, (k, v) in enumerate(sd.items()):
             pbar.update_absolute(i + 1)
 
@@ -69,39 +63,49 @@ class ConvertToNVFP4:
                 continue
 
             if v.ndim == 2 and ".weight" in k:
-                print(f"💎 Quantification : {k}")
-                
                 base_k_file = k.replace(".weight", "")
-                base_k_meta = base_k_file
-                if base_k_meta.startswith("model.diffusion_model."):
-                    base_k_meta = base_k_meta.replace("model.diffusion_model.", "")
+                
+                # REPRODUCTION DE LA LOGIQUE INITIALE (SÉCURISÉE)
+                if "model.diffusion_model." in base_k_file:
+                    base_k_meta = base_k_file.split("model.diffusion_model.")[-1]
+                else:
+                    base_k_meta = base_k_file
                 
                 v_tensor = v.to(device=device, dtype=torch.bfloat16)
-                
+
+                if FP8_LAYERS and any(name in k for name in FP8_LAYERS):
+                    #print(f"🌸 FP8 Cuisine : {k}")
+                    weight_scale = (v_tensor.abs().max() / 448.0).clamp(min=1e-12).float()
+                    weight_quantized = ck.quantize_per_tensor_fp8(v_tensor, weight_scale)
+                    new_sd[k] = weight_quantized.cpu()
+                    new_sd[f"{base_k_file}.weight_scale"] = weight_scale.to(torch.bfloat16).cpu()
+                    quant_map["layers"][base_k_meta] = {"format": "float8_e4m3fn"}
+                    if device == "cuda": del v_tensor
+                    continue
+
+                #print(f"💎 NVFP4 : {k}")
                 try:
                     qdata, params = TensorCoreNVFP4Layout.quantize(v_tensor)
                     tensors = TensorCoreNVFP4Layout.state_dict_tensors(qdata, params)
                     for suffix, tensor in tensors.items():
                         new_sd[f"{base_k_file}.weight{suffix}"] = tensor.cpu()
                     quant_map["layers"][base_k_meta] = {"format": "nvfp4"}
-                except Exception as e:
-                    print(f"⚠️ Fallback BF16 pour {k}: {e}")
+                except Exception:
                     new_sd[k] = v.to(dtype=torch.bfloat16)
                 
-                if device == "cuda":
-                    del v_tensor
+                if device == "cuda": del v_tensor
             else:
                 new_sd[k] = v.to(dtype=torch.bfloat16)
 
         metadata = {"_quantization_metadata": json.dumps(quant_map)}
         
-        print(f"💾 Écriture du fichier final : {output_path}")
+        # LOGS DE SAUVEGARDE FIGÉS
+        print(f"💾 Saving file | Type: {model_type} | Path: {output_path}")
         safetensors.torch.save_file(new_sd, output_path, metadata=metadata)
         
-        if device == "cuda":
-            torch.cuda.empty_cache()
-            
-        print(f"✅ Terminé.")
+        total_bytes = os.path.getsize(output_path)
+        print(f"✅ Terminé. Taille finale : {round(total_bytes / (1024**3), 2)} Go")
+        
         return (f"Succès ({model_type}) : {output_filename}.safetensors",)
 
 NODE_CLASS_MAPPINGS = {"ConvertToNVFP4": ConvertToNVFP4}
