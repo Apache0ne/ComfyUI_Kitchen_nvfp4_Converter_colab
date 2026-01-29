@@ -2,8 +2,8 @@
 
 # Mise à jours:
 - Base support Z-Image-Turbo
-- Ajout du support pour Flux.1 (Philippe Joye)
-- Ajout du support pour Flux.1 Fill
+- Ajout du support pour Flux.1-dev (Philippe Joye)
+- Ajout du support pour Flux.1-Fill
 - Ajout du support pour Qwen-image-edit 2511 (Merci Philippe)
 - Ajout du support pour Qwen-image 2512
 - Ajout du support pour Flux.2-dev
