@@ -18,7 +18,16 @@ class ConvertToNVFP4:
             "required": {
                 "model_name": (folder_paths.get_filename_list("diffusion_models"),),
                 "output_filename": ("STRING", {"default": "model-nvfp4"}),
-                "model_type": (["Z-Image", "Flux.1", "Flux.1 Fill", "Flux.2", "Qwen-Image-Edit-2511", "Qwen-Image-2512", "Wan2.2-i2v-high-low"], {"default": "Z-Image"}),
+                "model_type": ([
+                    "Z-Image-Turbo", 
+                    "Z-Image-Base", 
+                    "Flux.1-dev", 
+                    "Flux.1-Fill", 
+                    "Flux.2-dev", 
+                    "Qwen-Image-Edit-2511", 
+                    "Qwen-Image-2512", 
+                    "Wan2.2-i2v-high-low"
+                ], {"default": "Z-Image-Turbo"}),
                 "device": (["cuda", "cpu"], {"default": "cuda"}),
             }
         }
@@ -43,8 +52,23 @@ class ConvertToNVFP4:
         elif model_type == "Wan2.2-i2v-high-low":
             BLACKLIST = ["text_embedding", "time_embedding", "time_projection", "head"]
             FP8_LAYERS = []
-        elif model_type in ["Flux.1", "Flux.1 Fill", "Flux.2"]:
+        elif model_type in ["Flux.1-dev", "Flux.1-Fill", "Flux.2-dev"]:
             BLACKLIST = ["img_in", "txt_in", "time_in", "vector_in", "guidance_in", "final_layer", "class_embedding", "single_stream_modulation", "double_stream_modulation_img", "double_stream_modulation_txt"]
+            FP8_LAYERS = []
+        
+        # --- NOUVEAU PROFIL Z-IMAGE-BASE (QUALITÉ ÉLITE) ---
+        elif model_type == "Z-Image-Base":
+            # BF16 pour le contrôle et la stabilité
+            BLACKLIST = [
+                "adaLN_modulation", "norm", "final_layer", 
+                "cap_embedder", "x_embedder", "noise_refiner", 
+                "context_refiner", "t_embedder"
+            ]
+            # FP8 pour la finesse des détails et la cohérence
+            FP8_LAYERS = ["attention.out", "layers.0.", "layers.29."]
+
+        elif model_type == "Z-Image-Turbo":
+            BLACKLIST = ["cap_embedder", "x_embedder", "noise_refiner", "context_refiner", "t_embedder", "final_layer"]
             FP8_LAYERS = []
         else:
             BLACKLIST = ["cap_embedder", "x_embedder", "noise_refiner", "context_refiner", "t_embedder", "final_layer"]
@@ -68,7 +92,6 @@ class ConvertToNVFP4:
             if v.ndim == 2 and ".weight" in k:
                 base_k_file = k.replace(".weight", "")
                 
-                # REPRODUCTION DE LA LOGIQUE INITIALE (SÉCURISÉE)
                 if "model.diffusion_model." in base_k_file:
                     base_k_meta = base_k_file.split("model.diffusion_model.")[-1]
                 else:
@@ -102,7 +125,6 @@ class ConvertToNVFP4:
 
         metadata = {"_quantization_metadata": json.dumps(quant_map)}
         
-        # LOGS DE SAUVEGARDE FIGÉS
         print(f"💾 Saving file | Type: {model_type} | Path: {output_path}")
         safetensors.torch.save_file(new_sd, output_path, metadata=metadata)
         
