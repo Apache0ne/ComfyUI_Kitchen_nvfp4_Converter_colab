@@ -26,6 +26,7 @@ class ConvertToNVFP4:
                     "Flux.1-dev", 
                     "Flux.1-Fill", 
                     "Flux.2-dev", 
+                    "Flux.2-Klein-9b",
                     "Qwen-Image-Edit-2511", 
                     "Qwen-Image-2512", 
                     "Wan2.2-i2v-high-low",
@@ -55,7 +56,7 @@ class ConvertToNVFP4:
         elif model_type == "Wan2.2-i2v-high-low":
             BLACKLIST = ["text_embedding", "time_embedding", "time_projection", "head"]
             FP8_LAYERS = []
-        elif model_type in ["Flux.1-dev", "Flux.1-Fill", "Flux.2-dev"]:
+        elif model_type in ["Flux.1-dev", "Flux.1-Fill", "Flux.2-dev", "Flux.2-Klein-9b"]:
             BLACKLIST = ["bias", "txt_attn", "img_in", "txt_in", "time_in", "vector_in", "guidance_in", "final_layer", "class_embedding", "single_stream_modulation", "double_stream_modulation_img", "double_stream_modulation_txt"]
             FP8_LAYERS = []
         elif model_type == "Z-Image-Base":
