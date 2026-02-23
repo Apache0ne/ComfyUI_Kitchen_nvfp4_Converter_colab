@@ -2,6 +2,9 @@
 Please, only use the original files (bf16/fp16, not fp8, fine-tuned/merged or not) from comfyui. https://huggingface.co/Comfy-Org
 # Updates:
 
+
+- Colab script for bf16 finetunes of Flux klein 9b, 4b(no base yet) and ZImageTurbo and ZImageBase 
+
 - Base support for Z-Image-Turbo
 - Added support for Flux.1-dev (Philippe Joye)
 - Added support for Flux.1-Fill
