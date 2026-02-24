@@ -2,6 +2,7 @@
 Please, only use the original files (bf16/fp16, not fp8, fine-tuned/merged or not) from comfyui. https://huggingface.co/Comfy-Org
 # Updates:
 
+- Colab for Qwen3-4b-Z-Image-Engineer-V4 support (not shared, super messy)
 - Colab for qwen2.5vl-7b-Instruct-abliterated support (not shared cleaning)
 - Colab for qwen image layered and control
 - Colab script for bf16 finetunes of Flux klein 9b, 4b(no base yet) and ZImageTurbo and ZImageBase 
